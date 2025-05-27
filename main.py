@@ -1,4 +1,4 @@
-# projekt_gpx_viewer/main.py
+
 from nicegui import ui, app, Client
 from datetime import datetime
 import json
@@ -9,12 +9,12 @@ from pathlib import Path
 from functools import wraps
 from types import SimpleNamespace # SimpleNamespace importieren
 
-# Lokale Importe
+
 import db_config
 import gpx_utils
 import design
 
-# Global variables (bleiben gleich)
+
 edit_dialog_instance: Optional[ui.dialog] = None
 name_input_for_dialog: Optional[ui.input] = None
 labels_input_for_dialog: Optional[ui.input] = None
@@ -33,7 +33,6 @@ async def init_user_specific_app_storage(client: Client):
     await client.connected()
     user_id = get_current_user_id()
     if not user_id: return
-    print(f"DEBUG: init_user_specific_app_storage for user {user_id}.")
     app.storage.user.setdefault('tracks_in_table_data', [])
     app.storage.user.setdefault('selected_track_ids_list', [])
     app.storage.user.setdefault('filter_date_from_str', None)
@@ -51,22 +50,21 @@ async def initial_load_and_map_setup():
     await load_tracks_from_db_and_refresh_ui(user_id, is_initial_load=True)
 
 
-# --- Login Page ---
+# Login
 @ui.page('/login')
 async def login_page(client: Client):
     if get_current_user_id():
         ui.navigate.to('/')
         return
 
-    # Verwende SimpleNamespace, um UI-Referenzen und Zustand zu halten
-    # Dies vermeidet `nonlocal` für die Referenzen selbst.
-    s = SimpleNamespace() # 's' für state oder spezifischerer Name
+    
+    s = SimpleNamespace() 
     s.username_input = None
     s.password_input = None
-    # Für E-Mail-2FA benötigen wir keine dynamischen Formulare mehr hier
+    
     
     async def handle_login_attempt():
-        # Zugriff über s.attribut
+        
         if not s.username_input or not s.password_input:
             ui.notify("UI-Fehler.", type="error"); return
 
@@ -103,7 +101,7 @@ async def login_page(client: Client):
     with ui.column().classes('absolute-center items-center gap-4 w-full max-w-xs p-8 rounded shadow-lg bg-white'):
         ui.label('GPX Track Manager Login').classes('text-2xl font-semibold text-primary')
         
-        # UI-Elemente werden erstellt und den Attributen von 's' zugewiesen
+        
         s.username_input = ui.input('Benutzername').props('outlined dense clearable').classes('w-full')
         s.password_input = ui.input('Passwort', password=True).props('outlined dense clearable password-toggle').classes('w-full')
         
@@ -112,7 +110,7 @@ async def login_page(client: Client):
         ui.button('Registrieren', on_click=lambda: ui.navigate.to('/register')).props('flat color=primary').classes('w-full text-sm')
 
 
-# --- E-Mail 2FA Verifizierungsseite ---
+# E-Mail 2FA 
 @ui.page('/verify_2fa_email')
 async def verify_2fa_email_page(client: Client):
     pending_user_id = app.storage.user.get('pending_2fa_user_id_for_email')
@@ -121,7 +119,7 @@ async def verify_2fa_email_page(client: Client):
         ui.navigate.to('/login')
         return
 
-    s = SimpleNamespace() # State-Objekt für diese Seite
+    s = SimpleNamespace() 
     s.email_code_input = None
 
     async def handle_verify_2fa_code():
@@ -163,14 +161,14 @@ async def verify_2fa_email_page(client: Client):
         )).props('flat color=grey').classes('w-full text-sm mt-2')
 
 
-# --- Registration Page ---
+# Registration 
 @ui.page('/register')
 async def register_page(client: Client):
     if get_current_user_id():
         ui.navigate.to('/')
         return
 
-    s = SimpleNamespace() # State-Objekt für die Registrierungsseite
+    s = SimpleNamespace() 
     s.reg_username_input = None
     s.reg_email_input = None
     s.reg_password_input = None
@@ -206,7 +204,7 @@ async def register_page(client: Client):
             ui.notify(str(ve), type='negative')
         except Exception as e:
             print(f"Registrierungsfehler: {e}"); traceback.print_exc()
-            ui.notify('Registrierung fehlgeschlagen.', type='negative')
+            ui.notify('Registrierung fehlgeschlagen. E-Mailadresse bereits registriert.', type='negative')
         finally:
             db.close()
 
@@ -223,7 +221,7 @@ async def register_page(client: Client):
         ui.button('Login', on_click=lambda: ui.navigate.to('/login')).props('flat color=primary').classes('w-full text-sm')
 
 
-# --- Main Application Page (Protected) ---
+# Hauptprogramm
 @ui.page('/')
 async def main_page(client: Client):
     global edit_dialog_instance, name_input_for_dialog, labels_input_for_dialog
@@ -354,7 +352,6 @@ async def handle_gpx_upload(user_id: int, e: Any):
     finally: db.close()
 
 async def load_tracks_from_db_and_refresh_ui(user_id: int, is_initial_load: bool = False):
-    print(f"DEBUG: load_tracks_from_db_and_refresh_ui for user {user_id}. Initial: {is_initial_load}")
     db = db_config.SessionLocal()
     try:
         date_from = app.storage.user.get('filter_date_from_str'); date_to = app.storage.user.get('filter_date_to_str')
@@ -393,7 +390,6 @@ def update_all_db_labels_options_ui(user_id: int, db_session: Optional[db_config
             valid_filter_value = [val for val in current_filter_value if val in new_labels]
             app.storage.user['filter_labels_list'] = valid_filter_value
             label_select.set_value(valid_filter_value)
-        print(f"DEBUG: Updated label filter options for user {user_id}: {new_labels}")
     finally:
         if not db_session: db_to_use.close()
 
@@ -414,7 +410,6 @@ async def reset_all_filters(user_id: int, date_from_ui: ui.date, date_to_ui: ui.
 async def handle_table_selection_change(user_id: int, e: Any):
     selected_ids_set = {item['id'] for item in e.selection} if e.selection else set()
     app.storage.user['selected_track_ids_list'] = list(selected_ids_set)
-    print(f"DEBUG handle_table_selection_change for user {user_id}: selected_track_ids_list = {app.storage.user['selected_track_ids_list']}")
     await update_map_and_related_stats(user_id, is_initial_map_fit=False)
 
 async def update_map_and_related_stats(user_id: int, is_initial_map_fit: bool = False):
@@ -422,7 +417,6 @@ async def update_map_and_related_stats(user_id: int, is_initial_map_fit: bool = 
     stats_asc = app.storage.client.get('ui_stats_asc'); chart_container = app.storage.client.get('ui_elevation_chart_container')
     selected_ids_list = app.storage.user.get('selected_track_ids_list', []); selected_ids_set: Set[int] = set(selected_ids_list)
     if not map_view: print(f"CRITICAL: map_view not found for user {user_id}."); return
-    print(f"DEBUG update_map_and_stats for user {user_id}: IDs: {selected_ids_list}, InitialFit: {is_initial_map_fit}")
     map_view.clear_layers()
     map_view.tile_layer(
         url_template='https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',

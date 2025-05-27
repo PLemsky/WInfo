@@ -10,16 +10,13 @@ import traceback
 from passlib.context import CryptContext
 import secrets # Für sichere Zufallscodes
 
-# --- Konfiguration ---
 BASE_DIR = Path(__file__).resolve().parent
 GPX_UPLOAD_DIR = BASE_DIR / "gpx_uploads"
 GPX_UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 DATABASE_URL = f"sqlite:///{BASE_DIR / 'tracks_users_sqlalchemy.db'}"
 
-# --- Passwort Hashing Setup ---
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
-# --- Datenbank Setup ---
 engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False})
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
@@ -29,8 +26,6 @@ def set_sqlite_pragma(dbapi_connection, connection_record):
     cursor = dbapi_connection.cursor()
     cursor.execute("PRAGMA foreign_keys=ON")
     cursor.close()
-
-# --- Datenbank Modelle ---
 class UserDB(Base):
     __tablename__ = "users"
     id = Column(Integer, primary_key=True, index=True)
@@ -39,12 +34,9 @@ class UserDB(Base):
     hashed_password = Column(String, nullable=False)
     created_at = Column(DateTime, default=func.now())
     
-    # --- E-Mail 2FA Felder ---
     is_2fa_enabled = Column(Boolean, default=False, nullable=False)
-    email_2fa_code = Column(String, nullable=True) # Kann gehasht werden für mehr Sicherheit
+    email_2fa_code = Column(String, nullable=True) 
     email_2fa_code_expires_at = Column(DateTime, nullable=True)
-    # totp_secret = Column(String, nullable=True) # Wird nicht mehr benötigt für reine E-Mail-2FA
-
 class TrackDB(Base):
     __tablename__ = "tracks"
     id = Column(Integer, primary_key=True, index=True)
@@ -65,52 +57,28 @@ def create_db_tables():
 
 create_db_tables()
 
-# --- Passwort Hilfsfunktionen ---
 def verify_password(plain_password: str, hashed_password: str) -> bool:
     return pwd_context.verify(plain_password, hashed_password)
 
 def get_password_hash(password: str) -> str:
     return pwd_context.hash(password)
 
-# --- E-Mail 2FA Hilfsfunktionen ---
 def generate_email_2fa_code(length: int = 6) -> str:
     return "".join(secrets.choice("0123456789") for _ in range(length))
 
 def send_2fa_email(recipient_email: str, code: str):
-    # Für die Entwicklung: Code in der Konsole ausgeben
-    # In Produktion: Echten E-Mail-Versand implementieren (z.B. mit smtplib, SendGrid, etc.)
     print(f"SIMULATING EMAIL to {recipient_email}: Your 2FA code is {code}")
-    # Beispiel für smtplib (erfordert Konfiguration):
-    # import smtplib
-    # from email.mime.text import MIMEText
-    # sender_email = "deine_email@example.com"
-    # sender_password = "dein_passwort"
-    # subject = "Your GPX Track Manager 2FA Code"
-    # body = f"Your 2FA code is: {code}\nThis code will expire in 10 minutes."
-    # msg = MIMEText(body)
-    # msg['Subject'] = subject
-    # msg['From'] = sender_email
-    # msg['To'] = recipient_email
-    # try:
-    #     with smtplib.SMTP_SSL('smtp.example.com', 465) as smtp_server: # Dein SMTP Server
-    #         smtp_server.login(sender_email, sender_password)
-    #         smtp_server.sendmail(sender_email, recipient_email, msg.as_string())
-    #     print(f"2FA email sent to {recipient_email}")
-    #     return True
-    # except Exception as e:
-    #     print(f"Error sending 2FA email: {e}")
-    #     return False
-    return True # Für Simulation immer erfolgreich
+    #Mailkonfig folgt
+    return True 
 
-# --- User CRUD Operationen ---
 def get_user_by_username(db: Session, username: str) -> Optional[UserDB]:
     return db.query(UserDB).filter(UserDB.username == username).first()
 
 def get_user_by_id(db: Session, user_id: int) -> Optional[UserDB]:
     return db.query(UserDB).filter(UserDB.id == user_id).first()
 
-def create_user(db: Session, username: str, password: str, email: str) -> UserDB: # Email ist jetzt Pflicht
-    if not email: # Sicherstellen, dass E-Mail vorhanden ist
+def create_user(db: Session, username: str, password: str, email: str) -> UserDB: 
+    if not email: 
         raise ValueError("Email is required for user creation.")
     hashed_password = get_password_hash(password)
     db_user = UserDB(username=username, hashed_password=hashed_password, email=email)
@@ -119,34 +87,28 @@ def create_user(db: Session, username: str, password: str, email: str) -> UserDB
     db.refresh(db_user)
     return db_user
 
-# --- User Funktionen für E-Mail 2FA ---
 def set_email_2fa_code_for_user(db: Session, user_id: int, code_lifetime_minutes: int = 10) -> Optional[str]:
     user = get_user_by_id(db, user_id)
-    if user and user.email: # Nur wenn User existiert und eine E-Mail hat
+    if user and user.email: 
         code = generate_email_2fa_code()
-        user.email_2fa_code = get_password_hash(code) # Code sicher speichern (optional, aber empfohlen)
-        # Oder für einfache Verifizierung direkt: user.email_2fa_code = code
+        user.email_2fa_code = get_password_hash(code) 
         user.email_2fa_code_expires_at = datetime.utcnow() + timedelta(minutes=code_lifetime_minutes)
         db.commit()
-        return code # Den Klartext-Code zum Versenden zurückgeben
+        return code 
     return None
 
 def verify_email_2fa_code(db: Session, user_id: int, code_attempt: str) -> bool:
     user = get_user_by_id(db, user_id)
     if user and user.email_2fa_code and user.email_2fa_code_expires_at:
         if datetime.utcnow() > user.email_2fa_code_expires_at:
-            # Code abgelaufen, ungültig machen
             user.email_2fa_code = None
             user.email_2fa_code_expires_at = None
             db.commit()
             return False
         
-        # Vergleiche den Versuch mit dem gespeicherten (gehashten) Code
         is_valid = verify_password(code_attempt, user.email_2fa_code)
-        # ODER wenn direkt gespeichert: is_valid = (code_attempt == user.email_2fa_code)
-
+        
         if is_valid:
-            # Code war gültig, für nächste Verwendung ungültig machen
             user.email_2fa_code = None
             user.email_2fa_code_expires_at = None
             db.commit()
@@ -155,9 +117,8 @@ def verify_email_2fa_code(db: Session, user_id: int, code_attempt: str) -> bool:
 
 def enable_email_2fa(db: Session, user_id: int) -> bool:
     user = get_user_by_id(db, user_id)
-    if user and user.email: # Stelle sicher, dass der User eine E-Mail hat
+    if user and user.email: 
         user.is_2fa_enabled = True
-        # Alte Codes löschen, falls vorhanden (optional, aber sauber)
         user.email_2fa_code = None
         user.email_2fa_code_expires_at = None
         db.commit()
@@ -174,9 +135,6 @@ def disable_email_2fa(db: Session, user_id: int) -> bool:
         return True
     return False
 
-# --- Track CRUD Operationen (bleiben gleich) ---
-# ... (dein bestehender Code für Track CRUD) ...
-# (Stelle sicher, dass ForeignKey in TrackDB.user_id `ondelete="CASCADE"` hat, falls nicht schon geschehen)
 def add_track(
     db: Session,
     user_id: int, 

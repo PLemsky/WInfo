@@ -1,10 +1,9 @@
-# projekt_gpx_viewer/design.py
 from nicegui import ui, app
 from typing import Optional, Any 
 import traceback
 from types import SimpleNamespace 
 
-# Lokale Importe, die hier benötigt werden
+
 import db_config 
 
 PRIMARY_COLOR_HEX = '#1B5E20'
@@ -52,12 +51,10 @@ def apply_design_and_get_header():
             return
 
         dialog_state = SimpleNamespace()
-        # Typ-Annotationen für die Attribute des SimpleNamespace sind hier nicht nötig oder Standard.
-        # Pylance wird den Typ aus der Zuweisung inferieren.
-        dialog_state.dialog_instance = None # Wird später ui.dialog oder None sein
-        dialog_state.status_label = None   # Wird später ui.label oder None sein
-        dialog_state.action_button = None  # Wird später ui.button oder None sein
-        dialog_state.is_2fa_currently_enabled = False # Initialwert, Typ ist bool
+        dialog_state.dialog_instance = None 
+        dialog_state.status_label = None   
+        dialog_state.action_button = None  
+        dialog_state.is_2fa_currently_enabled = False 
 
         db_s_init = None
         try:
@@ -74,7 +71,6 @@ def apply_design_and_get_header():
             if db_s_init: db_s_init.close()
 
         async def update_dialog_ui_inner():
-            # ... (Rest der Funktion bleibt gleich, verwendet dialog_state.attribut)
             db_s_update = None
             try:
                 db_s_update = db_config.SessionLocal()
@@ -97,7 +93,6 @@ def apply_design_and_get_header():
 
 
         async def toggle_2fa_status_inner():
-            # ... (Rest der Funktion bleibt gleich, verwendet dialog_state.attribut)
             db_s_toggle = None
             try:
                 db_s_toggle = db_config.SessionLocal()
@@ -141,7 +136,6 @@ def apply_design_and_get_header():
             dialog_state.dialog_instance.open()
     
     def app_header():
-        # ... (Rest der app_header Funktion bleibt gleich) ...
         with ui.header(elevated=True).style(f'background-color: {PRIMARY_COLOR_HEX};').classes('items-center justify-between text-white q-py-sm q-px-md'):
             with ui.row().classes('items-center'):
                 ui.icon('route', size='lg').classes('q-mr-sm')
