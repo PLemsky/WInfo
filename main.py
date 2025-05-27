@@ -7,7 +7,7 @@ import asyncio
 import traceback
 from pathlib import Path
 from functools import wraps
-from types import SimpleNamespace # SimpleNamespace importieren
+from types import SimpleNamespace 
 
 
 import db_config
